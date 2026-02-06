@@ -1,14 +1,90 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hello World</title>
-  <link href='/style.css' rel='stylesheet'>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>기관 투자 포트폴리오 대시보드</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 </head>
 <body>
-  <h1>Hello, world!</h1>
-  <button onclick="console.log('hello');">Press me</button>
-  <script defer type="text/javascript" src="/main.js"></script>
+    <div class="container">
+        <header>
+            <div class="header-main">
+                <h1>기관 투자 포트폴리오 대시보드</h1>
+                <p>국내외 주요 기관 투자자들의 포트폴리오를 탐색하고 분석하세요.</p>
+            </div>
+            <div class="global-controls">
+                <div class="theme-switcher">
+                    <label for="theme-toggle" class="theme-label">다크 모드</label>
+                    <input type="checkbox" id="theme-toggle" class="theme-toggle-checkbox">
+                    <label for="theme-toggle" class="theme-toggle-label"></label>
+                </div>
+                <div class="currency-switcher">
+                    <button id="currency-krw" class="currency-btn active">₩ KRW</button>
+                    <button id="currency-usd" class="currency-btn">$ USD</button>
+                </div>
+            </div>
+        </header>
+        
+        <main>
+            <div id="main-grid-view">
+                <div class="controls-container">
+                    <div id="filter-buttons">
+                        <button class="filter-btn active" data-filter="all">전체</button>
+                        <button class="filter-btn" data-filter="국내 기관">국내</button>
+                        <button class="filter-btn" data-filter="해외 기관">해외</button>
+                    </div>
+                    <input type="text" id="institution-search" placeholder="기관명 검색...">
+                </div>
+                <div id="institution-grid"></div>
+            </div>
+
+            <div id="portfolio-display" class="hidden">
+                <div class="portfolio-header">
+                    <button id="back-btn">&larr; 목록으로</button>
+                    <h2 id="portfolio-title"></h2>
+                </div>
+                <div class="portfolio-content">
+                    <div id="key-insights" class="insights-container">
+                        <div class="insight-card"><span class="insight-label">총 평가액</span><h3 id="total-value">-</h3></div>
+                        <div class="insight-card"><span class="insight-label">보유 종목 수</span><h3 id="stock-count">-</h3></div>
+                        <div class="insight-card"><span class="insight-label">TOP 종목</span><h3 id="top-holding">-</h3></div>
+                    </div>
+
+                    <div class="portfolio-interactive-area">
+                        <div id="portfolio-main-content">
+                            <div class="charts-row">
+                                <div class="chart-container">
+                                    <div class="chart-wrapper">
+                                        <canvas id="portfolio-chart"></canvas>
+                                    </div>
+                                </div>
+                                <div class="chart-container">
+                                    <div class="chart-wrapper">
+                                        <canvas id="asset-allocation-chart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="table-container">
+                                <table id="portfolio-table">
+                                    <thead><tr><th>종목</th><th>총 보유 주식 수</th><th>포트폴리오 비중</th></tr></thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div id="stock-detail-display" class="hidden"></div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="main.js"></script>
 </body>
 </html>
