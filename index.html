@@ -19,22 +19,48 @@
         </header>
 
         <section class="panel">
-            <h2>회사(종목) 검색</h2>
+            <h2>기관 기준 조회</h2>
             <div class="search-row">
-                <input id="company-search" type="text" placeholder="회사명, 심볼, CUSIP 입력" />
+                <input id="institution-search" type="text" placeholder="기관명 입력" />
             </div>
-            <ul id="company-results" class="results-list"></ul>
+            <ul id="institution-results" class="results-list"></ul>
+            <div class="panel-head">
+                <div>
+                    <h3>기관 보유 종목</h3>
+                    <p id="institution-title" class="muted">기관 선택 필요</p>
+                </div>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>종목명</th>
+                            <th>보유 비율</th>
+                            <th>공시일</th>
+                        </tr>
+                    </thead>
+                    <tbody id="institution-holdings-body">
+                        <tr><td colspan="3" class="muted">기관을 선택하세요.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p id="institution-holdings-meta" class="muted"></p>
         </section>
 
         <section class="panel">
+            <h2>종목 기준 조회</h2>
+            <div class="search-row">
+                <input id="security-search" type="text" placeholder="종목명 입력" />
+            </div>
+            <ul id="security-results" class="results-list"></ul>
             <div class="panel-head">
                 <div>
-                    <h2>5% 이상 보유 기관</h2>
-                    <p id="company-title" class="muted">회사 선택 필요</p>
+                    <h3>5% 이상 보유 기관</h3>
+                    <p id="security-title" class="muted">종목 선택 필요</p>
                 </div>
                 <label class="sort-select">
                     정렬
-                    <select id="sort-select">
+                    <select id="security-sort-select">
                         <option value="percent_desc">보유 비율 내림차순</option>
                         <option value="date_desc">최신 공시순</option>
                     </select>
@@ -49,36 +75,12 @@
                             <th>공시일</th>
                         </tr>
                     </thead>
-                    <tbody id="institutions-body">
-                        <tr><td colspan="3" class="muted">회사를 선택하세요.</td></tr>
+                    <tbody id="security-holders-body">
+                        <tr><td colspan="3" class="muted">종목을 선택하세요.</td></tr>
                     </tbody>
                 </table>
             </div>
-            <p id="institutions-meta" class="muted"></p>
-        </section>
-
-        <section class="panel">
-            <div class="panel-head">
-                <div>
-                    <h2>기관 보유 종목</h2>
-                    <p id="institution-title" class="muted">기관 선택 필요</p>
-                </div>
-            </div>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>종목명</th>
-                            <th>심볼/CUSIP</th>
-                            <th>보유 비율</th>
-                        </tr>
-                    </thead>
-                    <tbody id="holdings-body">
-                        <tr><td colspan="3" class="muted">기관을 선택하세요.</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            <p id="holdings-meta" class="muted"></p>
+            <p id="security-holders-meta" class="muted"></p>
         </section>
     </main>
 
