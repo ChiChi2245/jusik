@@ -8,6 +8,11 @@ const institutionResults = document.getElementById("institution-results");
 const listView = document.getElementById("list-view");
 const detailView = document.getElementById("detail-view");
 const backBtn = document.getElementById("back-btn");
+const securityInput = document.getElementById("security-search");
+const securityResults = document.getElementById("security-results");
+const securityTitle = document.getElementById("security-title");
+const securityHoldersBody = document.getElementById("security-holders-body");
+const securityHoldersMeta = document.getElementById("security-holders-meta");
 
 const institutionName = document.getElementById("institution-name");
 const institutionMeta = document.getElementById("institution-meta");
@@ -30,6 +35,7 @@ init();
 
 async function init() {
   await loadInitialInstitutions();
+  await loadInitialSecurities();
   handleRoute();
   window.addEventListener("hashchange", handleRoute);
 }
@@ -77,6 +83,28 @@ async function loadInitialInstitutions() {
   renderInstitutionResults(data);
 }
 
+async function loadInitialSecurities() {
+  const { data, error } = await supabaseClient
+    .from("securities")
+    .select("id,name")
+    .order("name")
+    .limit(50);
+
+  if (error) {
+    securityResults.innerHTML = `<li class="muted">종목 목록 로드 실패: ${escapeHtml(
+      error.message,
+    )}</li>`;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    securityResults.innerHTML = `<li class="muted">종목 데이터가 없습니다.</li>`;
+    return;
+  }
+
+  renderSecurityResults(data);
+}
+
 async function searchInstitutions(term) {
   if (!term) {
     await loadInitialInstitutions();
@@ -103,6 +131,32 @@ async function searchInstitutions(term) {
   renderInstitutionResults(data);
 }
 
+async function searchSecurities(term) {
+  if (!term) {
+    await loadInitialSecurities();
+    return;
+  }
+
+  const pattern = `%${term}%`;
+  const { data, error } = await supabaseClient
+    .from("securities")
+    .select("id,name")
+    .ilike("name", pattern)
+    .limit(50);
+
+  if (error) {
+    securityResults.innerHTML = `<li class="muted">검색 실패: ${escapeHtml(error.message)}</li>`;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    securityResults.innerHTML = `<li class="muted">검색 결과 없음</li>`;
+    return;
+  }
+
+  renderSecurityResults(data);
+}
+
 function renderInstitutionResults(data) {
   institutionResults.innerHTML = data
     .map(
@@ -125,10 +179,38 @@ function renderInstitutionResults(data) {
   });
 }
 
+function renderSecurityResults(data) {
+  securityResults.innerHTML = data
+    .map(
+      (row) => `
+        <li>
+          <button class="result-btn" data-id="${row.id}">
+            <span class="result-title">${escapeHtml(row.name || "-")}</span>
+          </button>
+        </li>
+      `,
+    )
+    .join("");
+
+  securityResults.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.id;
+      if (!id) return;
+      selectSecurity(id);
+    });
+  });
+}
+
 institutionInput.addEventListener("input", () => {
   const term = institutionInput.value.trim();
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => searchInstitutions(term), 250);
+});
+
+securityInput.addEventListener("input", () => {
+  const term = securityInput.value.trim();
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => searchSecurities(term), 250);
 });
 
 function navigateToInstitution(id) {
@@ -188,6 +270,55 @@ async function selectInstitution(institutionId) {
   renderHoldingsTable(rows);
 }
 
+async function selectSecurity(securityId) {
+  const { data: secData, error: secErr } = await supabaseClient
+    .from("securities")
+    .select("id,name")
+    .eq("id", securityId)
+    .maybeSingle();
+
+  if (secErr || !secData) {
+    securityTitle.textContent = "종목 정보 없음";
+    return;
+  }
+
+  securityTitle.textContent = secData.name || "종목";
+
+  const { data: holdersData, error: holdersErr } = await supabaseClient
+    .from("holdings")
+    .select("percent,as_of_date,value_usd_thousands,institution:institutions(name)")
+    .eq("security_id", securityId)
+    .order("percent", { ascending: false })
+    .limit(50);
+
+  if (holdersErr) {
+    securityHoldersBody.innerHTML = `<tr><td colspan="4" class="muted">조회 실패: ${escapeHtml(
+      holdersErr.message,
+    )}</td></tr>`;
+    return;
+  }
+
+  const rows = holdersData || [];
+  securityHoldersMeta.textContent = `${rows.length}개 기관`;
+  if (rows.length === 0) {
+    securityHoldersBody.innerHTML = `<tr><td colspan="4" class="muted">보유 기관 없음</td></tr>`;
+    return;
+  }
+
+  securityHoldersBody.innerHTML = rows
+    .map((row) => {
+      const inst = row.institution || {};
+      return `
+        <tr>
+          <td>${escapeHtml(inst.name || "-")}</td>
+          <td>${formatPercent(row.percent)}</td>
+          <td>${formatDate(row.as_of_date)}</td>
+          <td>${row.value_usd_thousands ? row.value_usd_thousands.toLocaleString("en-US") : "-"}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
 function renderMetrics(rows) {
   metricCount.textContent = rows.length.toLocaleString("ko-KR");
   const percentSum = rows.reduce((sum, row) => sum + (Number(row.percent) || 0), 0);
