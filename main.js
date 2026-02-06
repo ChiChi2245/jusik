@@ -1,289 +1,651 @@
+
 document.addEventListener('DOMContentLoaded', () => {
-    // --- DOM Elements ---
-    const searchInput = document.getElementById('institution-search');
-    const institutionGrid = document.getElementById('institution-grid');
-    const portfolioDisplay = document.getElementById('portfolio-display');
-    const portfolioTitle = document.getElementById('portfolio-title');
-    const portfolioTableBody = document.querySelector('#portfolio-table tbody');
-    const backBtn = document.getElementById('back-btn');
-    const mainGridView = document.getElementById('main-grid-view');
-    const filterButtons = document.getElementById('filter-buttons');
-    const portfolioChartCanvas = document.getElementById('portfolio-chart');
-    const assetAllocationChartCanvas = document.getElementById('asset-allocation-chart');
-    const totalValueEl = document.getElementById('total-value');
-    const stockCountEl = document.getElementById('stock-count');
-    const topHoldingEl = document.getElementById('top-holding');
-    const stockDetailDisplay = document.getElementById('stock-detail-display');
-    const themeToggle = document.getElementById('theme-toggle');
-    const themeLabel = document.querySelector('.theme-label');
-    const currencyKrwBtn = document.getElementById('currency-krw');
-    const currencyUsdBtn = document.getElementById('currency-usd');
-
-    let portfolioChart = null;
-    let assetAllocationChart = null;
-    if (window.ChartDataLabels) {
-        Chart.register(window.ChartDataLabels);
-    }
-
-    // --- State Management ---
-    let displayCurrency = 'KRW';
-    const exchangeRate = 1300; // 1 USD = 1300 KRW
-    let currentInstitutionName = null;
-
-    // --- Data ---
-    const institutionalData = {
-        "국민연금공단": { type: "국내 기관", country: "kr", logoUrl: 'https://www.nps.or.kr/images/common/logo_nps.png', asset_allocation: { domestic_stock: 45, international_stock: 35, bond: 15, alternative: 5 }, domestic_stocks: [ { name: "삼성전자", symbol: "005930", currency: "KRW", price: 83000, transactions: [{ date: "2023-11-15", shares_bought: 200000000, purchasePrice: 70000 }, { date: "2024-03-20", shares_bought: 320183321, purchasePrice: 75000 }] }, { name: "SK하이닉스", symbol: "000660", currency: "KRW", price: 230000, transactions: [{ date: "2023-10-05", shares_bought: 58832911, purchasePrice: 180000 }] } ], international_stocks: [] },
-        "한국투자공사 (KIC)": { type: "국내 기관", country: "kr", logoUrl: 'https://www.kic.kr/images/common/logo.png', asset_allocation: { domestic_stock: 15, international_stock: 55, bond: 20, alternative: 10 }, domestic_stocks: [], international_stocks: [ { name: "Apple Inc.", symbol: "AAPL", currency: "USD", price: 214, transactions: [{ date: "2023-09-01", shares_bought: 15000000, purchasePrice: 180 }, { date: "2024-02-15", shares_bought: 5000000, purchasePrice: 190 }] }, { name: "NVIDIA Corp.", symbol: "NVDA", currency: "USD", price: 120, transactions: [{ date: "2023-05-20", shares_bought: 8000000, purchasePrice: 80 }] } ] },
-        "사학연금": { type: "국내 기관", country: "kr", logoUrl: 'https://www.tp.or.kr/hp/2021_renew/img/common/logo.png', asset_allocation: { domestic_stock: 50, international_stock: 20, bond: 25, alternative: 5 }, domestic_stocks: [ { name: "POSCO홀딩스", symbol: "005490", currency: "KRW", price: 380000, transactions: [{ date: "2023-12-01", shares_bought: 1500000, purchasePrice: 420000 }] }, { name: "LG에너지솔루션", symbol: "373220", currency: "KRW", price: 350000, transactions: [{ date: "2024-01-20", shares_bought: 1000000, purchasePrice: 380000 }] } ], international_stocks: [] },
-        "공무원연금공단": { type: "국내 기관", country: "kr", logoUrl: 'https://www.geps.or.kr/g/img/com/logo_c.png', asset_allocation: { domestic_stock: 30, international_stock: 15, bond: 50, alternative: 5 }, domestic_stocks: [ { name: "SK텔레콤", symbol: "017670", currency: "KRW", price: 52000, transactions: [{ date: "2023-11-01", shares_bought: 10000000, purchasePrice: 48000 }] }, { name: "KT&G", symbol: "033780", currency: "KRW", price: 90000, transactions: [{ date: "2023-09-15", shares_bought: 5000000, purchasePrice: 95000 }] } ], international_stocks: [] },
-        "BlackRock Inc.": { type: "해외 기관", country: "us", logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/BlackRock_logo.svg/1000px-BlackRock_logo.svg.png', asset_allocation: { domestic_stock: 5, international_stock: 65, bond: 20, alternative: 10 }, domestic_stocks: [], international_stocks: [ { name: "Microsoft Corp.", symbol: "MSFT", currency: "USD", price: 449, transactions: [{ date: "2023-08-22", shares_bought: 983102931, purchasePrice: 380 }] }, { name: "Amazon.com, Inc.", symbol: "AMZN", currency: "USD", price: 185, transactions: [{ date: "2024-01-05", shares_bought: 450192010, purchasePrice: 150 }] } ] },
-        "The Vanguard Group": { type: "해외 기관", country: "us", logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Vanguard_Group_logo.svg/1000px-Vanguard_Group_logo.svg.png', asset_allocation: { domestic_stock: 5, international_stock: 60, bond: 30, alternative: 5 }, domestic_stocks: [], international_stocks: [ { name: "Johnson & Johnson", symbol: "JNJ", currency: "USD", price: 148, transactions: [{ date: "2023-07-15", shares_bought: 800000000, purchasePrice: 155 }] }, { name: "Procter & Gamble Co.", symbol: "PG", currency: "USD", price: 168, transactions: [{ date: "2023-09-10", shares_bought: 750000000, purchasePrice: 160 }] } ] },
+    const SUPABASE = {
+        url: 'https://sqtoenwoxwyhjaqsdyyp.supabase.co',
+        anonKey: 'sb_publishable_JbFnEmztUuyCesUdg5jqvw_6baRRda3',
     };
 
-    // --- Helper Functions ---
-    function formatCurrency(value, valueCurrency) {
-        let convertedValue = value;
-        if (displayCurrency === 'USD' && valueCurrency === 'KRW') {
-            convertedValue = value / exchangeRate;
-        } else if (displayCurrency === 'KRW' && valueCurrency === 'USD') {
-            convertedValue = value * exchangeRate;
-        }
+    const useLiveData = SUPABASE.url && SUPABASE.anonKey;
 
-        const options = {
+    const fallbackData = {
+        nps: { name: "국민연금공단", type: "domestic", description: "대한민국의 대표적인 연기금.", totalAssets: 1000000000000000, assetAllocation: { '국내주식': 40, '해외주식': 30, '채권': 20, '대체투자': 10 }, holdings: [
+            { rank: 1, name: "삼성전자", ticker: "005930", weight: 5.5, value: 55000000000000, quantity: 700000000, details: { marketCap: "450조", transactions: [{date: '2023-10-26', action: 'buy', amount: 100000}], news: [{title: '삼성전자, 4분기 실적 호조', url: '#'}]} },
+            { rank: 2, name: "LG에너지솔루션", ticker: "373220", weight: 3.2, value: 32000000000000, quantity: 80000000, details: { marketCap: "100조", transactions: [], news: []} },
+        ]},
+        berkshire: { name: "Berkshire Hathaway", type: "foreign", description: "워렌 버핏이 이끄는 가치 투자의 대명사.", totalAssets: 900000000000, assetAllocation: { '주식': 80, '채권': 10, '현금': 10 }, holdings: [
+            { rank: 1, name: "Apple Inc.", ticker: "AAPL", weight: 45.0, value: 405000000000, quantity: 2300000000, details: { marketCap: "2.5조 USD", transactions: [{date: '2023-09-30', action: 'sell', amount: 10000}], news: [{title: 'Apple, Vision Pro 출시 예정', url: '#'}]} },
+        ]},
+        ark: { name: "ARK Invest", type: "foreign", description: "파괴적 혁신 기술 전문 투자사.", totalAssets: 30000000000, assetAllocation: { '주식': 98, '현금': 2 }, holdings: [
+            { rank: 1, name: "Tesla, Inc.", ticker: "TSLA", weight: 9.8, value: 2940000000, quantity: 12000000, details: { marketCap: "8000억 USD", transactions: [], news: []} },
+        ]},
+    };
+
+    let liveInstitutions = [];
+    let liveHoldings = [];
+    let liveSectors = [];
+    let liveSummary = null;
+
+    let assetAllocationChart, holdingsPieChart, currentInstitutionId;
+    let displayCurrency = 'KRW';
+    let currentBaseCurrency = 'KRW';
+    let currentTheme = 'dark';
+    let fxUsdToKrw = 1300;
+    const FX_CONFIG = {
+        endpoint: 'https://api.exchangerate.host/latest?base=USD&symbols=KRW',
+        refreshMs: 60 * 60 * 1000,
+    };
+
+    const institutionNav = document.getElementById('institution-selector-nav');
+    const dashboardNav = document.getElementById('dashboard-nav');
+    const institutionCardsContainer = document.getElementById('institution-cards');
+    const dashboardContainer = document.getElementById('dashboard');
+    const panelOverlay = document.getElementById('detail-panel-overlay');
+    const panel = document.getElementById('detail-panel');
+    const topTitle = document.getElementById('top-title');
+    const topSubtitle = document.getElementById('top-subtitle');
+    const fxRateEl = document.getElementById('fx-rate');
+    const fxUpdatedEl = document.getElementById('fx-updated');
+    const sqlToggleBtn = document.getElementById('sql-toggle-btn');
+    const sqlEditor = document.getElementById('sql-editor');
+    const sqlCloseBtn = document.getElementById('sql-close-btn');
+    const sqlInput = document.getElementById('sql-input');
+    const sqlRunBtn = document.getElementById('sql-run-btn');
+    const sqlStatus = document.getElementById('sql-status');
+    const sqlError = document.getElementById('sql-error');
+    const sqlResults = document.getElementById('sql-results');
+    const sqlResultsMeta = document.getElementById('sql-results-meta');
+    const sqlResultsTable = document.getElementById('sql-results-table');
+    const sqlAdminToken = document.getElementById('sql-admin-token');
+    const sqlMaxRows = document.getElementById('sql-max-rows');
+    const sqlEditorMonaco = document.getElementById('sql-editor-monaco');
+    const sqlSchemaRefresh = document.getElementById('sql-schema-refresh');
+    const sqlSchemaList = document.getElementById('sql-schema-list');
+    let monacoEditor = null;
+
+    const getCssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+    const convertValue = (value, baseCurrency, targetCurrency) => {
+        if (value === null || value === undefined) return null;
+        if (baseCurrency === targetCurrency) return value;
+        if (baseCurrency === 'USD' && targetCurrency === 'KRW') return value * fxUsdToKrw;
+        if (baseCurrency === 'KRW' && targetCurrency === 'USD') return value / fxUsdToKrw;
+        return value;
+    };
+
+    const formatCurrency = (value, baseCurrency = currentBaseCurrency) => {
+        if (value === null || value === undefined) return '-';
+        const converted = convertValue(value, baseCurrency, displayCurrency);
+        const locale = displayCurrency === 'KRW' ? 'ko-KR' : 'en-US';
+        return new Intl.NumberFormat(locale, {
             style: 'currency',
             currency: displayCurrency,
-            minimumFractionDigits: displayCurrency === 'KRW' ? 0 : 2,
-            maximumFractionDigits: displayCurrency === 'KRW' ? 0 : 2,
-        };
-        
-        if (convertedValue >= 1e12) {
-            return `${displayCurrency === 'KRW' ? '₩' : '$'}${(convertedValue / 1e12).toFixed(2)}T`;
-        } else if (convertedValue >= 1e9) {
-            return `${displayCurrency === 'KRW' ? '₩' : '$'}${(convertedValue / 1e9).toFixed(2)}B`;
-        }
+            notation: 'compact',
+            maximumFractionDigits: 1,
+        }).format(converted);
+    };
 
-        return convertedValue.toLocaleString(displayCurrency === 'KRW' ? 'ko-KR' : 'en-US', options);
-    }
-
-    function getDomainFromStockName(name) { return name.toLowerCase().replace(/ inc\.| corp\.|, inc| co\.| ltd\.|, /g, '').replace(/[ .]/g, '') + '.com'; }
-    function getAllHoldings(institution) {
-        const domestic = institution.domestic_stocks || [];
-        const international = institution.international_stocks || [];
-        return [...domestic, ...international];
-    }
-
-    // --- Theme Logic ---
-    function setTheme(theme) {
-        document.body.classList.toggle('light-mode', theme === 'light');
-        themeLabel.textContent = theme === 'light' ? '라이트 모드' : '다크 모드';
-        localStorage.setItem('theme', theme);
-        if (portfolioChart) portfolioChart.destroy();
-        if (assetAllocationChart) assetAllocationChart.destroy();
-        if (currentInstitutionName) {
-             const institution = institutionalData[currentInstitutionName];
-            const allHoldings = getAllHoldings(institution);
-            const totalValue = allHoldings.reduce((acc, s) => acc + (s.totalShares * s.price * (s.currency === 'USD' ? exchangeRate : 1)), 0);
-            renderPortfolioDonutChart(allHoldings, totalValue);
-            if (institution.asset_allocation) renderAssetAllocationChart(institution.asset_allocation);
-        }
-    }
-
-    // --- Main Logic ---
-    function renderInstitutionCards(filter = 'all') {
-        institutionGrid.innerHTML = '';
-        Object.keys(institutionalData).sort().forEach(name => {
-            const institution = institutionalData[name];
-            if (filter === 'all' || institution.type === filter) {
-                const card = createCard(name, institution);
-                card.addEventListener('click', () => showPortfolio(name));
-                institutionGrid.appendChild(card);
-            }
-        });
-        filterInstitutions();
-    }
-
-    function createCard(name, institution) {
-        const card = document.createElement('div');
-        card.className = 'institution-card';
-        card.dataset.name = name;
-        card.innerHTML = `<div class="card-logo-container"><img src="${institution.logoUrl}" alt="${name} Logo" class="card-logo" onerror="this.style.display='none';"></div><div class="card-info"><h3>${name}</h3><p>${institution.type}</p></div><img src="https://flagcdn.com/w40/${institution.country.toLowerCase()}.png" alt="${institution.country} flag" class="card-flag">`;
-        return card;
-    }
-
-    function filterInstitutions() {
-        const query = searchInput.value.toLowerCase().trim();
-        document.querySelectorAll('#institution-grid .institution-card').forEach(card => {
-            card.style.display = card.dataset.name.toLowerCase().includes(query) ? 'flex' : 'none';
+    function renderInstitutionCards(filter = 'all', searchTerm = '') {
+        institutionCardsContainer.innerHTML = '';
+        const data = useLiveData ? liveInstitutions : Object.keys(fallbackData).map(id => ({ id, ...fallbackData[id] }));
+        data.filter(inst => (filter === 'all' || inst.type === filter) && inst.name.toLowerCase().includes(searchTerm.toLowerCase())).forEach(inst => {
+            const card = document.createElement('div');
+            card.className = 'institution-card';
+            card.innerHTML = `<h3>${inst.name}</h3><p>${inst.description}</p>`;
+            card.addEventListener('click', () => showDashboard(inst.id));
+            institutionCardsContainer.appendChild(card);
         });
     }
 
-    function showPortfolio(name) {
-        currentInstitutionName = name;
-        hideStockDetail();
-        mainGridView.classList.add('hidden');
-        portfolioDisplay.classList.remove('hidden');
-        
-        const institution = institutionalData[name];
-        portfolioTitle.textContent = `${name} 포트폴리오 분석`;
-        
-        const allHoldings = getAllHoldings(institution)
-            .map(s => ({ ...s, totalShares: s.transactions.reduce((acc, t) => acc + t.shares_bought, 0) }))
-            .sort((a, b) => (b.totalShares * b.price * (b.currency === 'USD' ? exchangeRate : 1)) - (a.totalShares * a.price * (a.currency === 'USD' ? exchangeRate : 1)));
+    function renderDashboard(id) {
+        currentInstitutionId = id;
+        const inst = useLiveData
+            ? liveInstitutions.find(item => item.id === id)
+            : fallbackData[id];
+        currentBaseCurrency = useLiveData ? 'USD' : (inst.type === 'domestic' ? 'KRW' : 'USD');
+        setTopTitle(inst.name, '대시보드');
 
-        const totalValueInKRW = allHoldings.reduce((acc, s) => acc + (s.totalShares * s.price * (s.currency === 'USD' ? exchangeRate : 1)), 0);
+        const totalValue = useLiveData ? (liveSummary?.total_value_usd ?? null) : inst.totalAssets;
+        const positions = useLiveData ? (liveSummary?.positions ?? 0) : inst.holdings.length;
 
-        totalValueEl.textContent = formatCurrency(totalValueInKRW, 'KRW');
-        stockCountEl.textContent = allHoldings.length;
-        topHoldingEl.textContent = allHoldings.length > 0 ? allHoldings[0].name : '-';
-        
-        renderPortfolioTable(allHoldings, totalValueInKRW);
-        renderPortfolioDonutChart(allHoldings, totalValueInKRW);
-        if (institution.asset_allocation) {
-            renderAssetAllocationChart(institution.asset_allocation);
+        dashboardContainer.innerHTML = `
+            <section id="key-metrics" class="dashboard-section"><h3>핵심 지표</h3><div id="key-metrics-content" style="display:flex; gap: 20px;"><div class="metric"><p>총 평가액</p><span>${formatCurrency(totalValue, currentBaseCurrency)}</span></div><div class="metric"><p>보유 종목 수</p><span>${positions} 개</span></div></div></section>
+            <div class="dashboard-row">
+                <section id="asset-allocation" class="dashboard-section dashboard-half"><h3>자산 배분</h3><div class="chart-wrap"><canvas id="asset-allocation-chart"></canvas></div><div id="asset-allocation-labels" class="chart-labels"></div></section>
+                <section id="holdings-pie" class="dashboard-section dashboard-half"><h3>보유 주식 비중</h3><div class="chart-wrap"><canvas id="holdings-pie-chart"></canvas></div><div id="holdings-pie-labels" class="chart-labels"></div></section>
+            </div>
+            <section id="holdings-table-section" class="dashboard-section"><h3>보유 종목</h3><div class="table-container"><table><thead><tr><th>순위</th><th>종목명</th><th>티커</th><th>비중(%)</th><th>평가액</th><th>수량</th></tr></thead><tbody id="holdings-table-body"></tbody></table></div></section>
+        `;
+        if (useLiveData) {
+            renderHoldingsTable(liveHoldings);
+            renderAssetAllocationChart(liveSectors);
+            renderHoldingsPieChart(liveHoldings);
+        } else {
+            renderHoldingsTable(inst.holdings);
+            renderAssetAllocationChart(inst.assetAllocation);
+            renderHoldingsPieChart(inst.holdings);
         }
     }
 
-    function renderPortfolioTable(holdings, totalValueInKRW) {
-        portfolioTableBody.innerHTML = '';
-        holdings.forEach((stock, index) => {
-            const stockValueInKRW = stock.totalShares * stock.price * (stock.currency === 'USD' ? exchangeRate : 1);
-            const percentage = totalValueInKRW > 0 ? (stockValueInKRW / totalValueInKRW * 100).toFixed(2) : 0;
+    function renderHoldingsTable(data) {
+        const tableBody = document.getElementById('holdings-table-body');
+        tableBody.innerHTML = '';
+        data.forEach((h, idx) => {
             const row = document.createElement('tr');
             row.style.cursor = 'pointer';
-            row.innerHTML = `<td><div class="stock-info"><img src="https://logo.clearbit.com/${getDomainFromStockName(stock.name)}" class="stock-logo" onerror="this.style.visibility='hidden';"><span>${stock.name} (${stock.symbol})</span></div></td><td>${stock.totalShares.toLocaleString()} 주</td><td><div class="weight-cell"><span>${percentage}%</span><div class="weight-bar-bg"><div class="weight-bar" style="width: ${percentage}%;"></div></div></div></td>`;
-            row.addEventListener('mouseover', () => highlightChartSegment(index, true));
-            row.addEventListener('mouseout', () => highlightChartSegment(index, false));
-            row.addEventListener('click', () => showStockDetail(stock, row));
-            portfolioTableBody.appendChild(row);
+            const name = h.name || h.display_name || h.issuer_name || h.target_corp_name;
+            row.innerHTML = `<td>${h.rank ?? (idx + 1)}</td><td>${name ?? '-'}</td><td>${h.ticker ?? h.cusip ?? '-'}</td><td>${h.weight ? h.weight.toFixed(2) : '-'}</td><td>${formatCurrency(h.value, currentBaseCurrency)}</td><td>${h.shares ? h.shares.toLocaleString() : '-'}</td>`;
+            row.addEventListener('click', () => openPanel(currentInstitutionId, h.cusip || h.ticker || name));
+            tableBody.appendChild(row);
         });
     }
-
-    function showStockDetail(stock, clickedRow) {
-        document.querySelectorAll('#portfolio-table tbody tr').forEach(r => r.classList.remove('active'));
-        clickedRow.classList.add('active');
-        stockDetailDisplay.classList.remove('hidden');
-
-        const totalShares = stock.transactions.reduce((acc, t) => acc + t.shares_bought, 0);
-        const totalCost = stock.transactions.reduce((acc, t) => acc + (t.shares_bought * t.purchasePrice), 0);
-        const avgPurchasePrice = totalShares > 0 ? totalCost / totalShares : 0;
-        const currentValue = totalShares * stock.price;
-        const totalReturnPercentage = totalCost > 0 ? (currentValue - totalCost) / totalCost * 100 : 0;
-
-        let timelineHTML = stock.transactions.sort((a, b) => new Date(b.date) - new Date(a.date)).map(t => {
-            const returnOnTx = (stock.price - t.purchasePrice) / t.purchasePrice * 100;
-            const returnClass = returnOnTx >= 0 ? 'positive' : 'negative';
-            return `<li class="transaction-item"><div class="transaction-date">${t.date}</div><div class="transaction-details"><span>매수: ${t.shares_bought.toLocaleString()} 주</span><span class="transaction-price">@ ${formatCurrency(t.purchasePrice, stock.currency)}</span></div><div class="transaction-return ${returnClass}">${returnOnTx.toFixed(2)}%</div></li>`;
-        }).join('');
-
-        const returnClass = totalReturnPercentage >= 0 ? 'positive' : 'negative';
-        stockDetailDisplay.innerHTML = `
-            <div class="stock-detail-header">
-                <div class="stock-title-info"><img src="https://logo.clearbit.com/${getDomainFromStockName(stock.name)}" class="stock-logo-large" onerror="this.style.visibility='hidden';"><h3>${stock.name} 상세</h3></div>
-                <button id="close-detail-btn">×</button>
+    
+    function renderPanelContent(instId, ticker) {
+        if (!useLiveData) {
+            const holding = fallbackData[instId].holdings.find(h => h.ticker === ticker);
+            document.getElementById('panel-title').innerText = `${holding.name} (${holding.ticker})`;
+            document.getElementById('panel-content').innerHTML = `<div class="panel-section"><h4>기본 정보</h4><p>시가총액: ${holding.details.marketCap}</p></div> ...`;
+            return;
+        }
+        const holding = liveHoldings.find(h => h.cusip === ticker || h.ticker === ticker || h.display_name === ticker);
+        if (!holding) return;
+        const title = holding.display_name || holding.issuer_name || holding.target_corp_name;
+        const sub = holding.ticker || holding.cusip || '';
+        document.getElementById('panel-title').innerText = `${title} ${sub ? `(${sub})` : ''}`;
+        document.getElementById('panel-content').innerHTML = `
+            <div class="panel-section"><h4>보유 정보</h4>
+                <p>평가액: ${formatCurrency(holding.value, currentBaseCurrency)}</p>
+                <p>수량: ${holding.shares ? holding.shares.toLocaleString() : '-'}</p>
+                <p>섹터: ${holding.sector ?? '-'}</p>
             </div>
-            <div class="stock-summary-cards">
-                <div class="summary-card"><span class="summary-label">총 수익률</span><h3 class="${returnClass}">${totalReturnPercentage.toFixed(2)}%</h3></div>
-                <div class="summary-card"><span class="summary-label">평균 매수가</span><h3>${formatCurrency(avgPurchasePrice, stock.currency)}</h3></div>
-            </div>
-            <div class="transaction-timeline"><h4>매매 이력</h4><ul>${timelineHTML}</ul></div>
         `;
-
-        document.getElementById('close-detail-btn').addEventListener('click', hideStockDetail);
     }
 
-    function hideStockDetail() {
-        stockDetailDisplay.classList.add('hidden');
-        document.querySelectorAll('#portfolio-table tbody tr').forEach(r => r.classList.remove('active'));
-    }
-
-    function highlightChartSegment(index, isHighlight) { if (portfolioChart) { portfolioChart.setActiveElements(isHighlight ? [{ datasetIndex: 0, index: index }] : []); portfolioChart.update(); } }
-
-    function renderPortfolioDonutChart(holdings, totalValueInKRW) {
-        if (portfolioChart) portfolioChart.destroy();
-        const isLightMode = document.body.classList.contains('light-mode');
-        const chartTextColor = isLightMode ? '#333' : '#fff';
-        const chartBorderColor = isLightMode ? '#f4f7fa' : '#2c2c2f';
-
-        portfolioChart = new Chart(portfolioChartCanvas.getContext('2d'), { 
-            type: 'doughnut', 
-            data: { 
-                labels: holdings.map(s => s.name), 
-                datasets: [{ data: holdings.map(s => s.totalShares * s.price * (s.currency === 'USD' ? exchangeRate : 1)), backgroundColor: ['#3498db','#e74c3c','#2ecc71','#9b59b6','#f1c40f','#1abc9c', '#34495e', '#e67e22', '#7f8c8d', '#27ae60'], borderColor: chartBorderColor, borderWidth: 5, hoverOffset: 15 }] 
-            }, 
-            options: { 
-                responsive: true, maintainAspectRatio: false, cutout: '65%', 
-                onHover: (e, el) => e.native.target.style.cursor = el[0] ? 'pointer' : 'default',
-                plugins: { 
-                    legend: { display: false }, 
-                    title: { display: true, text: '보유 주식 비중', color: chartTextColor, font: { size: 16 } },
-                    datalabels: { color: '#fff', textAlign: 'center', font: { family: 'Noto Sans KR', weight: 'bold', size: 12 }, formatter: (v, ctx) => { const p = (v / totalValueInKRW * 100); if (p < 5) return ''; return `${ctx.chart.data.labels[ctx.dataIndex]}\n${p.toFixed(1)}%`; }, textStrokeColor: '#000', textStrokeWidth: 2, anchor: 'center', align: 'center' } 
-                } 
-            } 
-        });
-    }
-
-    function renderAssetAllocationChart(allocationData) {
-        if (assetAllocationChart) assetAllocationChart.destroy();
-        const isLightMode = document.body.classList.contains('light-mode');
-        const chartTextColor = isLightMode ? '#333' : '#fff';
-        const chartBorderColor = isLightMode ? '#f4f7fa' : '#2c2c2f';
-        
-        const total = Object.values(allocationData).reduce((a, b) => a + b, 0);
-        assetAllocationChart = new Chart(assetAllocationChartCanvas.getContext('2d'), {
-            type: 'doughnut',
-            data: {
-                labels: ['국내 주식', '해외 주식', '채권', '대체투자'],
-                datasets: [{ data: Object.values(allocationData), backgroundColor: ['#007bff', '#28a745', '#ffc107', '#6f42c1'], borderColor: chartBorderColor, borderWidth: 5, hoverOffset: 15 }]
+    function chartOptionsBase(valueFormatter, sliceFormatter) {
+        const textColor = getCssVar('--text-primary');
+        const formatter = valueFormatter || ((val) => formatCurrency(val, currentBaseCurrency));
+        const legendPosition = window.innerWidth < 900 ? 'bottom' : 'right';
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: legendPosition,
+                    labels: {
+                        color: textColor,
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        boxWidth: 8,
+                        boxHeight: 8,
+                        padding: 12,
+                        font: { size: 12 },
+                    },
+                },
+                sliceLabels: {
+                    formatter: sliceFormatter,
+                    color: textColor,
+                    minPercent: 6,
+                },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => {
+                            const val = ctx.raw ?? 0;
+                            return `${ctx.label}: ${formatter(val)}`;
+                        },
+                    },
+                },
             },
-            options: {
-                responsive: true, maintainAspectRatio: false, cutout: '65%',
-                plugins: {
-                    legend: { display: false },
-                    title: { display: true, text: '자산 배분', color: chartTextColor, font: { size: 16 } },
-                    datalabels: { color: '#fff', textAlign: 'center', font: { family: 'Noto Sans KR', weight: 'bold', size: 12 }, formatter: (v, ctx) => { if (v < 5) return ''; return `${ctx.chart.data.labels[ctx.dataIndex]}\n${v}%`; }, textStrokeColor: '#000', textStrokeWidth: 2, anchor: 'center', align: 'center' }
+        };
+    }
+
+    Chart.register({
+        id: 'sliceLabels',
+        afterDatasetsDraw(chart, args, pluginOptions) {
+            const { ctx } = chart;
+            const dataset = chart.data.datasets?.[0];
+            if (!dataset) return;
+            const meta = chart.getDatasetMeta(0);
+            const total = dataset.data.reduce((sum, v) => sum + (Number(v) || 0), 0) || 1;
+            const formatter = pluginOptions?.formatter;
+            const color = pluginOptions?.color || '#fff';
+            const minPercent = pluginOptions?.minPercent ?? 6;
+
+            ctx.save();
+            ctx.font = '11px Pretendard, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = color;
+
+            meta.data.forEach((arc, idx) => {
+                const val = Number(dataset.data[idx]) || 0;
+                const pct = (val / total) * 100;
+                if (pct < minPercent) return;
+                const label = formatter ? formatter(val, idx, pct, chart) : `${pct.toFixed(1)}%`;
+                if (!label) return;
+                const point = arc.tooltipPosition();
+                const lines = String(label).split('\n');
+                const lineHeight = 12;
+                lines.forEach((line, i) => {
+                    ctx.fillText(line, point.x, point.y + (i - (lines.length - 1) / 2) * lineHeight);
+                });
+            });
+
+            ctx.restore();
+        },
+    });
+
+    function renderAssetAllocationChart(data) {
+        if (assetAllocationChart) assetAllocationChart.destroy();
+        const labelsEl = document.getElementById('asset-allocation-labels');
+        if (labelsEl) labelsEl.innerHTML = '';
+        if (useLiveData) {
+            const labels = data.map(item => item.sector);
+            const values = data.map(item => convertValue(Number(item.total_value) || 0, currentBaseCurrency, displayCurrency));
+            const sliceFormatter = (val, idx, pct, chart) => `${chart.data.labels[idx]}\n${pct.toFixed(1)}%`;
+            const options = chartOptionsBase(undefined, sliceFormatter);
+            assetAllocationChart = new Chart(document.getElementById('asset-allocation-chart').getContext('2d'), { type: 'doughnut', data: { labels, datasets: [{ data: values, backgroundColor: ['#0A84FF', '#30D158', '#FF9F0A', '#FF453A', '#BF5AF2', '#5E5CE6', '#64D2FF', '#FFD60A', '#FF9F0A'] }] }, options });
+            if (labelsEl) {
+                const total = values.reduce((sum, v) => sum + (Number(v) || 0), 0) || 1;
+                labelsEl.innerHTML = labels.map((label, idx) => {
+                    const pct = (values[idx] / total) * 100;
+                    const color = ['#0A84FF', '#30D158', '#FF9F0A', '#FF453A', '#BF5AF2', '#5E5CE6', '#64D2FF', '#FFD60A', '#FF9F0A'][idx] || '#888';
+                    return `<div class="label-item"><span class="label-dot" style="background:${color}"></span><span class="label-name">${label}</span><span class="label-pct">${pct.toFixed(1)}%</span></div>`;
+                }).join('');
+            }
+        } else {
+            const percentFormatter = (val) => `${Number(val).toFixed(1)}%`;
+            const sliceFormatter = (val, idx, pct, chart) => `${chart.data.labels[idx]}\n${Number(val).toFixed(1)}%`;
+            const percentOptions = chartOptionsBase(percentFormatter, sliceFormatter);
+            const labels = Object.keys(data);
+            const values = Object.values(data);
+            assetAllocationChart = new Chart(document.getElementById('asset-allocation-chart').getContext('2d'), { type: 'doughnut', data: { labels, datasets: [{ data: values, backgroundColor: ['#0A84FF', '#30D158', '#FF9F0A', '#FF453A', '#BF5AF2'] }] }, options: percentOptions });
+            if (labelsEl) {
+                labelsEl.innerHTML = labels.map((label, idx) => {
+                    const color = ['#0A84FF', '#30D158', '#FF9F0A', '#FF453A', '#BF5AF2'][idx] || '#888';
+                    return `<div class="label-item"><span class="label-dot" style="background:${color}"></span><span class="label-name">${label}</span><span class="label-pct">${Number(values[idx]).toFixed(1)}%</span></div>`;
+                }).join('');
+            }
+        }
+    }
+
+    function renderHoldingsPieChart(data) {
+        if (holdingsPieChart) holdingsPieChart.destroy();
+        const labelsEl = document.getElementById('holdings-pie-labels');
+        if (labelsEl) labelsEl.innerHTML = '';
+        if (useLiveData) {
+            const sorted = [...data].sort((a, b) => (b.value || 0) - (a.value || 0)).slice(0, 10);
+            const labels = sorted.map(h => h.display_name);
+            const values = sorted.map(h => convertValue(h.value || 0, currentBaseCurrency, displayCurrency));
+            const sliceFormatter = (val, idx, pct, chart) => `${chart.data.labels[idx]}\n${pct.toFixed(1)}%`;
+            const options = chartOptionsBase(undefined, sliceFormatter);
+            holdingsPieChart = new Chart(document.getElementById('holdings-pie-chart').getContext('2d'), { type: 'pie', data: { labels, datasets: [{ data: values, backgroundColor: ['#0A84FF', '#30D158', '#FF9F0A', '#FF453A', '#BF5AF2', '#5E5CE6', '#64D2FF', '#FFD60A', '#FF9F0A', '#34C759'].slice(0, sorted.length) }] }, options });
+            if (labelsEl) {
+                const total = values.reduce((sum, v) => sum + (Number(v) || 0), 0) || 1;
+                labelsEl.innerHTML = sorted.map((h, idx) => {
+                    const pct = (values[idx] / total) * 100;
+                    const color = ['#0A84FF', '#30D158', '#FF9F0A', '#FF453A', '#BF5AF2', '#5E5CE6', '#64D2FF', '#FFD60A', '#FF9F0A', '#34C759'][idx] || '#888';
+                    return `<div class="label-item"><span class="label-dot" style="background:${color}"></span><span class="label-name">${h.display_name}</span><span class="label-pct">${pct.toFixed(1)}%</span></div>`;
+                }).join('');
+            }
+        } else {
+            const percentFormatter = (val) => `${Number(val).toFixed(1)}%`;
+            const sliceFormatter = (val, idx, pct, chart) => `${chart.data.labels[idx]}\n${Number(val).toFixed(1)}%`;
+            const percentOptions = chartOptionsBase(percentFormatter, sliceFormatter);
+            const sliced = data.slice(0, 10);
+            holdingsPieChart = new Chart(document.getElementById('holdings-pie-chart').getContext('2d'), { type: 'pie', data: { labels: sliced.map(h => h.name), datasets: [{ data: sliced.map(h => h.weight), backgroundColor: ['#0A84FF', '#30D158', '#FF9F0A', '#FF453A', '#BF5AF2', '#5E5CE6', '#64D2FF', '#FFD60A', '#FF9F0A', '#34C759'].slice(0, sliced.length) }] }, options: percentOptions });
+            if (labelsEl) {
+                labelsEl.innerHTML = sliced.map((h, idx) => {
+                    const color = ['#0A84FF', '#30D158', '#FF9F0A', '#FF453A', '#BF5AF2', '#5E5CE6', '#64D2FF', '#FFD60A', '#FF9F0A', '#34C759'][idx] || '#888';
+                    return `<div class="label-item"><span class="label-dot" style="background:${color}"></span><span class="label-name">${h.name}</span><span class="label-pct">${Number(h.weight).toFixed(1)}%</span></div>`;
+                }).join('');
+            }
+        }
+    }
+
+    async function showDashboard(id) {
+        institutionNav.style.display = 'none';
+        dashboardNav.classList.remove('dashboard-nav-hidden');
+        const name = useLiveData
+            ? (liveInstitutions.find(item => item.id === id)?.name ?? '')
+            : fallbackData[id].name;
+        document.getElementById('dashboard-nav-title').innerText = name;
+        institutionCardsContainer.style.display = 'none';
+        dashboardContainer.classList.remove('dashboard-hidden');
+        if (useLiveData) {
+            await loadInstitutionData(id);
+        }
+        renderDashboard(id);
+    }
+
+    function showSelector() {
+        dashboardNav.classList.add('dashboard-nav-hidden');
+        institutionNav.style.display = 'flex';
+        dashboardContainer.classList.add('dashboard-hidden');
+        institutionCardsContainer.style.display = 'grid';
+        currentInstitutionId = null;
+        setTopTitle('기관 투자 포트폴리오', '기관 선택');
+        renderInstitutionCards();
+    }
+
+    function openPanel(instId, ticker) {
+        renderPanelContent(instId, ticker);
+        panelOverlay.classList.remove('hidden');
+        document.body.classList.add('panel-open');
+    }
+
+    function closePanel() {
+        document.body.classList.remove('panel-open');
+        panelOverlay.classList.add('hidden');
+    }
+
+    async function init() {
+        applyTheme('dark');
+        if (useLiveData) {
+            await loadInstitutions();
+        }
+        refreshFxRate();
+        setInterval(refreshFxRate, FX_CONFIG.refreshMs);
+        setTopTitle('기관 투자 포트폴리오', '기관 선택');
+        updateFxDisplay();
+        renderInstitutionCards();
+        document.getElementById('back-to-list-btn').addEventListener('click', showSelector);
+        document.getElementById('panel-close-btn').addEventListener('click', closePanel);
+        panelOverlay.addEventListener('click', closePanel);
+        document.getElementById('search-input').addEventListener('input', (e) => renderInstitutionCards(document.querySelector('.filter-btn.active').dataset.filter, e.target.value));
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('click', (e) => { document.querySelector('.filter-btn.active').classList.remove('active'); e.target.classList.add('active'); renderInstitutionCards(e.target.dataset.filter, document.getElementById('search-input').value); }));
+        document.querySelectorAll('[data-theme]').forEach(btn => btn.addEventListener('click', () => applyTheme(btn.dataset.theme)));
+        document.querySelectorAll('[data-currency]').forEach(btn => btn.addEventListener('click', () => setCurrency(btn.dataset.currency)));
+        if (sqlToggleBtn && sqlEditor) {
+            sqlToggleBtn.addEventListener('click', () => {
+                sqlEditor.classList.toggle('hidden');
+                if (!sqlEditor.classList.contains('hidden')) {
+                    loadSchema();
+                }
+            });
+        }
+        if (sqlCloseBtn && sqlEditor) {
+            sqlCloseBtn.addEventListener('click', () => sqlEditor.classList.add('hidden'));
+        }
+        if (sqlAdminToken) {
+            const saved = localStorage.getItem('sql_admin_token');
+            if (saved) sqlAdminToken.value = saved;
+            sqlAdminToken.addEventListener('input', () => localStorage.setItem('sql_admin_token', sqlAdminToken.value));
+        }
+        if (sqlRunBtn) {
+            sqlRunBtn.addEventListener('click', runSqlQuery);
+        }
+        if (sqlInput) {
+            sqlInput.addEventListener('keydown', (e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    runSqlQuery();
+                }
+            });
+        }
+        if (sqlSchemaRefresh) {
+            sqlSchemaRefresh.addEventListener('click', loadSchema);
+        }
+        initMonacoEditor();
+    }
+
+    init();
+
+    function setTopTitle(title, subtitle) {
+        if (topTitle) topTitle.textContent = title || '기관 투자 포트폴리오';
+        if (topSubtitle) topSubtitle.textContent = subtitle || '';
+    }
+
+    async function refreshFxRate() {
+        try {
+            const res = await fetch(FX_CONFIG.endpoint);
+            if (!res.ok) return;
+            const data = await res.json();
+            const rate = data?.rates?.KRW;
+            if (typeof rate === 'number' && isFinite(rate) && rate > 0) {
+                fxUsdToKrw = rate;
+                updateFxDisplay();
+                if (currentInstitutionId) {
+                    renderDashboard(currentInstitutionId);
                 }
             }
+        } catch (err) {
+            // Keep fallback rate on failure.
+        }
+    }
+
+    async function runSqlQuery() {
+        if (!sqlInput || !sqlRunBtn) return;
+        const sql = getSqlText();
+        if (!sql) return;
+
+        const maxRows = Math.min(Math.max(Number(sqlMaxRows?.value || 200), 1), 1000);
+
+        sqlRunBtn.disabled = true;
+        if (sqlStatus) sqlStatus.textContent = '실행 중...';
+        if (sqlError) sqlError.classList.add('hidden');
+        if (sqlResults) sqlResults.classList.add('hidden');
+
+        try {
+            const headers = {
+                'Content-Type': 'application/json',
+                apikey: SUPABASE.anonKey,
+            };
+            const token = sqlAdminToken?.value?.trim();
+            if (token) {
+                headers['x-admin-token'] = token;
+            }
+            const res = await fetch(`${SUPABASE.url}/functions/v1/sql-editor`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ sql, maxRows }),
+            });
+            const data = await res.json();
+            if (!res.ok || data.error) {
+                throw new Error(data.error || '쿼리 실행 실패');
+            }
+            renderSqlResults(data.rows || [], data.duration_ms);
+            if (sqlStatus) sqlStatus.textContent = '완료';
+        } catch (err) {
+            if (sqlStatus) sqlStatus.textContent = '실패';
+            if (sqlError) {
+                sqlError.textContent = err instanceof Error ? err.message : '알 수 없는 오류';
+                sqlError.classList.remove('hidden');
+            }
+        } finally {
+            sqlRunBtn.disabled = false;
+        }
+    }
+
+    function renderSqlResults(rows, durationMs) {
+        if (!sqlResults || !sqlResultsMeta || !sqlResultsTable) return;
+        if (!rows || rows.length === 0) {
+            sqlResultsMeta.textContent = durationMs ? `결과 없음 · ${durationMs}ms` : '결과 없음';
+            sqlResultsTable.innerHTML = '';
+            sqlResults.classList.remove('hidden');
+            return;
+        }
+        const columns = Object.keys(rows[0]);
+        const thead = `<thead><tr>${columns.map(col => `<th>${col}</th>`).join('')}</tr></thead>`;
+        const tbody = `<tbody>${rows.map(row => `<tr>${columns.map(col => `<td>${row[col] ?? ''}</td>`).join('')}</tr>`).join('')}</tbody>`;
+        sqlResultsTable.innerHTML = `<table>${thead}${tbody}</table>`;
+        const meta = `${rows.length} rows`;
+        sqlResultsMeta.textContent = durationMs ? `${meta} · ${durationMs}ms` : meta;
+        sqlResults.classList.remove('hidden');
+    }
+
+    async function loadSchema() {
+        if (!sqlSchemaList) return;
+        sqlSchemaList.textContent = '로딩 중...';
+        try {
+            const headers = {
+                'Content-Type': 'application/json',
+                apikey: SUPABASE.anonKey,
+            };
+            const token = sqlAdminToken?.value?.trim();
+            if (token) {
+                headers['x-admin-token'] = token;
+            }
+            const schemaSql = `
+                select table_name, column_name, data_type
+                from information_schema.columns
+                where table_schema = 'public'
+                order by table_name, ordinal_position
+            `;
+            const res = await fetch(`${SUPABASE.url}/functions/v1/sql-editor`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ sql: schemaSql, maxRows: 1000 }),
+            });
+            const data = await res.json();
+            if (!res.ok || data.error) {
+                throw new Error(data.error || '스키마 로드 실패');
+            }
+            renderSchemaList(data.rows || []);
+        } catch (err) {
+            sqlSchemaList.textContent = err instanceof Error ? err.message : '스키마 로드 실패';
+        }
+    }
+
+    function renderSchemaList(rows) {
+        if (!sqlSchemaList) return;
+        sqlSchemaList.innerHTML = '';
+        if (!rows || rows.length === 0) {
+            sqlSchemaList.textContent = '스키마 없음';
+            return;
+        }
+        const grouped = {};
+        rows.forEach((row) => {
+            const table = row.table_name;
+            if (!grouped[table]) grouped[table] = [];
+            grouped[table].push({ name: row.column_name, type: row.data_type });
+        });
+        const tables = Object.keys(grouped);
+        tables.forEach((table, idx) => {
+            const details = document.createElement('details');
+            if (idx < 2) details.open = true;
+            const summary = document.createElement('summary');
+            summary.textContent = table;
+            const cols = document.createElement('div');
+            cols.className = 'sql-schema-columns';
+            grouped[table].forEach((col) => {
+                const name = document.createElement('span');
+                name.textContent = col.name;
+                const type = document.createElement('span');
+                type.textContent = col.type;
+                cols.appendChild(name);
+                cols.appendChild(type);
+            });
+            details.appendChild(summary);
+            details.appendChild(cols);
+            sqlSchemaList.appendChild(details);
         });
     }
 
-    function showGrid() {
-        if (portfolioChart) { portfolioChart.destroy(); portfolioChart = null; }
-        if (assetAllocationChart) { assetAllocationChart.destroy(); assetAllocationChart = null; }
-        portfolioDisplay.classList.add('hidden');
-        mainGridView.classList.remove('hidden');
-        hideStockDetail();
-        currentInstitutionName = null;
+    function getSqlText() {
+        if (monacoEditor) {
+            return monacoEditor.getValue().trim();
+        }
+        return sqlInput ? sqlInput.value.trim() : '';
     }
 
-    // --- Event Listeners ---
-    searchInput.addEventListener('input', filterInstitutions);
-    backBtn.addEventListener('click', showGrid);
-    filterButtons.addEventListener('click', (e) => {
-        if (e.target.tagName === 'BUTTON') {
-            document.querySelector('.filter-btn.active').classList.remove('active');
-            e.target.classList.add('active');
-            renderInstitutionCards(e.target.dataset.filter);
+    function setSqlText(value) {
+        if (monacoEditor) {
+            monacoEditor.setValue(value);
+            return;
         }
-    });
-    themeToggle.addEventListener('change', () => {
-        setTheme(themeToggle.checked ? 'light' : 'dark');
-    });
-    currencyKrwBtn.addEventListener('click', () => {
-        displayCurrency = 'KRW';
-        currencyKrwBtn.classList.add('active');
-        currencyUsdBtn.classList.remove('active');
-        if (currentInstitutionName) showPortfolio(currentInstitutionName);
-    });
-    currencyUsdBtn.addEventListener('click', () => {
-        displayCurrency = 'USD';
-        currencyUsdBtn.classList.add('active');
-        currencyKrwBtn.classList.remove('active');
-        if (currentInstitutionName) showPortfolio(currentInstitutionName);
-    });
+        if (sqlInput) sqlInput.value = value;
+    }
 
-    // --- Initial Render ---
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    themeToggle.checked = savedTheme === 'light';
-    setTheme(savedTheme);
-    renderInstitutionCards();
+    function initMonacoEditor() {
+        if (!sqlEditorMonaco || !window.require) {
+            if (sqlInput) sqlInput.classList.remove('hidden');
+            return;
+        }
+        window.require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs' } });
+        window.require(['vs/editor/editor.main'], () => {
+            monacoEditor = monaco.editor.create(sqlEditorMonaco, {
+                value: 'select * from v_institutions limit 50',
+                language: 'sql',
+                theme: currentTheme === 'light' ? 'vs' : 'vs-dark',
+                minimap: { enabled: false },
+                fontSize: 13,
+                automaticLayout: true,
+            });
+            if (sqlInput) sqlInput.classList.add('hidden');
+        });
+    }
+
+    function updateFxDisplay() {
+        if (fxRateEl) {
+            const formatted = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(fxUsdToKrw);
+            fxRateEl.textContent = `USD/KRW ${formatted}`;
+        }
+        if (fxUpdatedEl) {
+            const now = new Date();
+            const time = new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit' }).format(now);
+            fxUpdatedEl.textContent = `${time} 기준`;
+        }
+    }
+
+    function applyTheme(theme) {
+        currentTheme = theme;
+        document.body.dataset.theme = theme;
+        document.querySelectorAll('[data-theme]').forEach(btn => btn.classList.toggle('active', btn.dataset.theme === theme));
+        Chart.defaults.color = getCssVar('--text-primary');
+        Chart.defaults.borderColor = getCssVar('--border-color');
+        if (monacoEditor && window.monaco) {
+            monaco.editor.setTheme(theme === 'light' ? 'vs' : 'vs-dark');
+        }
+        if (currentInstitutionId) {
+            renderDashboard(currentInstitutionId);
+        }
+    }
+
+    function setCurrency(currency) {
+        displayCurrency = currency;
+        document.querySelectorAll('[data-currency]').forEach(btn => btn.classList.toggle('active', btn.dataset.currency === currency));
+        if (currentInstitutionId) {
+            renderDashboard(currentInstitutionId);
+        }
+    }
+
+    async function loadInstitutions() {
+        const url = `${SUPABASE.url}/rest/v1/v_institutions?select=id,name,country_code,source`;
+        const data = await supaFetch(url);
+        liveInstitutions = (data || []).map(item => ({
+            id: item.id,
+            name: item.name,
+            type: item.country_code === 'KR' ? 'domestic' : 'foreign',
+            description: item.source === 'DART' ? '국내 공시 기반' : 'SEC 13F 기반',
+        }));
+    }
+
+    async function loadInstitutionData(id) {
+        const summaryUrl = `${SUPABASE.url}/rest/v1/v_institution_summary?institution_id=eq.${id}`;
+        const holdingsUrl = `${SUPABASE.url}/rest/v1/v_institution_holdings_latest_enriched?institution_id=eq.${id}&order=value.desc&limit=2000`;
+        const sectorsUrl = `${SUPABASE.url}/rest/v1/v_institution_sector_latest?institution_id=eq.${id}`;
+
+        const [summary, holdings, sectors] = await Promise.all([
+            supaFetch(summaryUrl),
+            supaFetch(holdingsUrl),
+            supaFetch(sectorsUrl),
+        ]);
+
+        liveSummary = summary && summary.length > 0 ? summary[0] : null;
+        liveHoldings = holdings || [];
+        liveSectors = sectors || [];
+    }
+
+    async function supaFetch(url) {
+        if (!SUPABASE.url || !SUPABASE.anonKey) {
+            return null;
+        }
+        const res = await fetch(url, {
+            headers: {
+                apikey: SUPABASE.anonKey,
+                Authorization: `Bearer ${SUPABASE.anonKey}`,
+            },
+        });
+        if (!res.ok) return null;
+        return await res.json();
+    }
 });

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -5,86 +6,125 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>기관 투자 포트폴리오 대시보드</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/loader.js"></script>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <div class="header-main">
-                <h1>기관 투자 포트폴리오 대시보드</h1>
-                <p>국내외 주요 기관 투자자들의 포트폴리오를 탐색하고 분석하세요.</p>
-            </div>
-            <div class="global-controls">
-                <div class="theme-switcher">
-                    <label for="theme-toggle" class="theme-label">다크 모드</label>
-                    <input type="checkbox" id="theme-toggle" class="theme-toggle-checkbox">
-                    <label for="theme-toggle" class="theme-toggle-label"></label>
-                </div>
-                <div class="currency-switcher">
-                    <button id="currency-krw" class="currency-btn active">₩ KRW</button>
-                    <button id="currency-usd" class="currency-btn">$ USD</button>
-                </div>
-            </div>
-        </header>
-        
-        <main>
-            <div id="main-grid-view">
-                <div class="controls-container">
-                    <div id="filter-buttons">
+    <div class="app-container">
+        <aside class="sidebar">
+            <h1 class="sidebar-title">기관 투자 포트폴리오 대시보드</h1>
+            
+            <nav class="sidebar-nav">
+                <!-- 기관 선택 컨트롤 -->
+                <section id="institution-selector-nav" class="nav-section">
+                    <h2 class="nav-title">기관 선택</h2>
+                    <div class="search-bar">
+                        <input type="text" id="search-input" placeholder="기관명 검색...">
+                    </div>
+                    <div class="filter-buttons">
                         <button class="filter-btn active" data-filter="all">전체</button>
-                        <button class="filter-btn" data-filter="국내 기관">국내</button>
-                        <button class="filter-btn" data-filter="해외 기관">해외</button>
+                        <button class="filter-btn" data-filter="domestic">국내</button>
+                        <button class="filter-btn" data-filter="foreign">해외</button>
                     </div>
-                    <input type="text" id="institution-search" placeholder="기관명 검색...">
-                </div>
-                <div id="institution-grid"></div>
-            </div>
+                </section>
 
-            <div id="portfolio-display" class="hidden">
-                <div class="portfolio-header">
-                    <button id="back-btn">&larr; 목록으로</button>
-                    <h2 id="portfolio-title"></h2>
-                </div>
-                <div class="portfolio-content">
-                    <div id="key-insights" class="insights-container">
-                        <div class="insight-card"><span class="insight-label">총 평가액</span><h3 id="total-value">-</h3></div>
-                        <div class="insight-card"><span class="insight-label">보유 종목 수</span><h3 id="stock-count">-</h3></div>
-                        <div class="insight-card"><span class="insight-label">TOP 종목</span><h3 id="top-holding">-</h3></div>
-                    </div>
+                <!-- 대시보드 네비게이션 (초기에는 숨김) -->
+                <section id="dashboard-nav" class="nav-section dashboard-nav-hidden">
+                    <button id="back-to-list-btn">← 목록으로</button>
+                    <h2 id="dashboard-nav-title" class="nav-title"></h2>
+                    <ul class="dashboard-menu">
+                        <li><a href="#key-metrics">핵심 지표</a></li>
+                        <li><a href="#asset-allocation">자산 배분</a></li>
+                        <li><a href="#holdings-pie">보유 주식 비중</a></li>
+                        <li><a href="#holdings-table-section">보유 종목</a></li>
+                    </ul>
+                </section>
+            </nav>
 
-                    <div class="portfolio-interactive-area">
-                        <div id="portfolio-main-content">
-                            <div class="charts-row">
-                                <div class="chart-container">
-                                    <div class="chart-wrapper">
-                                        <canvas id="portfolio-chart"></canvas>
-                                    </div>
-                                </div>
-                                <div class="chart-container">
-                                    <div class="chart-wrapper">
-                                        <canvas id="asset-allocation-chart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="table-container">
-                                <table id="portfolio-table">
-                                    <thead><tr><th>종목</th><th>총 보유 주식 수</th><th>포트폴리오 비중</th></tr></thead>
-                                    <tbody></tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <div id="stock-detail-display" class="hidden"></div>
-                    </div>
+        </aside>
 
-                </div>
-            </div>
+        <main class="main-content">
+             <div class="top-controls">
+                 <div class="top-title">
+                     <h2 id="top-title">기관 투자 포트폴리오</h2>
+                     <p id="top-subtitle">기관 선택</p>
+                 </div>
+                 <button id="sql-toggle-btn" class="sql-toggle-btn">SQL Editor</button>
+                 <div class="control-group">
+                     <span class="control-label">모드</span>
+                     <div class="segmented-control" role="group" aria-label="테마 모드">
+                         <button id="theme-dark" class="segmented-btn active" data-theme="dark">다크</button>
+                         <button id="theme-light" class="segmented-btn" data-theme="light">라이트</button>
+                     </div>
+                 </div>
+                 <div class="control-group">
+                     <span class="control-label">통화</span>
+                     <div class="segmented-control" role="group" aria-label="통화 선택">
+                         <button id="currency-krw" class="segmented-btn active" data-currency="KRW">원화</button>
+                         <button id="currency-usd" class="segmented-btn" data-currency="USD">달러</button>
+                     </div>
+                 </div>
+                 <div class="control-group fx-rate">
+                     <span class="control-label">환율</span>
+                     <div class="fx-value">
+                         <span id="fx-rate">USD/KRW 1,300.00</span>
+                         <span id="fx-updated">업데이트 대기</span>
+                     </div>
+                 </div>
+             </div>
+             <section id="sql-editor" class="sql-editor hidden">
+                 <div class="sql-editor-header">
+                     <h3>SQL Editor (Read-only)</h3>
+                     <button id="sql-close-btn" class="sql-close-btn">닫기</button>
+                 </div>
+                 <div class="sql-editor-body">
+                     <div class="sql-editor-controls">
+                         <label class="sql-label">
+                             Admin Token
+                             <input id="sql-admin-token" type="password" placeholder="옵션: 서버에 설정된 토큰" />
+                         </label>
+                         <label class="sql-label">
+                             Max Rows
+                             <input id="sql-max-rows" type="number" min="1" max="1000" value="200" />
+                         </label>
+                         <button id="sql-run-btn" class="sql-run-btn">실행</button>
+                         <span id="sql-status" class="sql-status">대기</span>
+                     </div>
+                     <div class="sql-editor-grid">
+                         <div class="sql-editor-pane">
+                             <div id="sql-editor-monaco" class="sql-editor-monaco"></div>
+                             <textarea id="sql-input" class="sql-input hidden" spellcheck="false" placeholder="SELECT * FROM ..."></textarea>
+                         </div>
+                         <div class="sql-schema-pane">
+                             <div class="sql-schema-header">
+                                 <span>스키마</span>
+                                 <button id="sql-schema-refresh" class="sql-schema-btn">새로고침</button>
+                             </div>
+                             <div id="sql-schema-list" class="sql-schema-list">로딩 전</div>
+                         </div>
+                     </div>
+                     <div id="sql-error" class="sql-error hidden"></div>
+                     <div id="sql-results" class="sql-results hidden">
+                         <div class="sql-results-meta" id="sql-results-meta"></div>
+                         <div class="sql-results-table" id="sql-results-table"></div>
+                     </div>
+                 </div>
+             </section>
+             <div id="institution-cards" class="institution-cards-grid"></div>
+             <div id="dashboard" class="dashboard-hidden"></div>
         </main>
     </div>
-    
+
+    <!-- 종목 상세 분석 패널 (구조 복원) -->
+    <div id="detail-panel-overlay" class="hidden"></div>
+    <aside id="detail-panel" class="hidden">
+        <div class="panel-header">
+            <h3 id="panel-title"></h3>
+            <button id="panel-close-btn">&times;</button>
+        </div>
+        <div id="panel-content" class="panel-content"></div>
+    </aside>
+
     <script src="main.js"></script>
 </body>
 </html>
