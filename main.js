@@ -1,26 +1,38 @@
 const SUPABASE_URL = "https://sqtoenwoxwyhjaqsdyyp.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_JbFnEmztUuyCesUdg5jqvw_6baRRda3";
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const institutionInput = document.getElementById("institution-search");
 const institutionResults = document.getElementById("institution-results");
-const institutionTitle = document.getElementById("institution-title");
-const institutionHoldingsBody = document.getElementById("institution-holdings-body");
-const institutionHoldingsMeta = document.getElementById("institution-holdings-meta");
+const listView = document.getElementById("list-view");
+const detailView = document.getElementById("detail-view");
+const backBtn = document.getElementById("back-btn");
 
-const securityInput = document.getElementById("security-search");
-const securityResults = document.getElementById("security-results");
-const securityTitle = document.getElementById("security-title");
-const securityHoldersBody = document.getElementById("security-holders-body");
-const securityHoldersMeta = document.getElementById("security-holders-meta");
-const securitySortSelect = document.getElementById("security-sort-select");
+const institutionName = document.getElementById("institution-name");
+const institutionMeta = document.getElementById("institution-meta");
+const metricCount = document.getElementById("metric-count");
+const metricPercent = document.getElementById("metric-percent");
+const metricDate = document.getElementById("metric-date");
+const holdingsBody = document.getElementById("holdings-body");
 
-let selectedInstitution = null;
-let selectedSecurity = null;
-let currentInstitutionHoldings = [];
-let currentSecurityHolders = [];
 let debounceTimer = null;
+let top10Chart = null;
+let marketChart = null;
+
+// Redirect direct path access to hash routing to avoid 404 on static hosting.
+if (window.location.pathname.startsWith("/institution/")) {
+  const id = window.location.pathname.split("/")[2];
+  window.location.replace(`/#/institution/${id}`);
+}
+
+init();
+
+async function init() {
+  await loadInitialInstitutions();
+  handleRoute();
+  window.addEventListener("hashchange", handleRoute);
+}
 
 function formatDate(value) {
   if (!value) return "-";
@@ -43,17 +55,40 @@ function escapeHtml(text) {
     .replace(/'/g, "&#039;");
 }
 
-async function searchInstitutions(term) {
-  if (!term) {
-    institutionResults.innerHTML = "";
+async function loadInitialInstitutions() {
+  const { data, error } = await supabaseClient
+    .from("institutions")
+    .select("id,name")
+    .order("name")
+    .limit(50);
+
+  if (error) {
+    institutionResults.innerHTML = `<li class="muted">기관 목록 로드 실패: ${escapeHtml(
+      error.message,
+    )}</li>`;
     return;
   }
+
+  if (!data || data.length === 0) {
+    institutionResults.innerHTML = `<li class="muted">기관 데이터가 없습니다.</li>`;
+    return;
+  }
+
+  renderInstitutionResults(data);
+}
+
+async function searchInstitutions(term) {
+  if (!term) {
+    await loadInitialInstitutions();
+    return;
+  }
+
   const pattern = `%${term}%`;
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from("institutions")
     .select("id,name")
     .ilike("name", pattern)
-    .limit(20);
+    .limit(50);
 
   if (error) {
     institutionResults.innerHTML = `<li class="muted">검색 실패: ${escapeHtml(error.message)}</li>`;
@@ -65,11 +100,15 @@ async function searchInstitutions(term) {
     return;
   }
 
+  renderInstitutionResults(data);
+}
+
+function renderInstitutionResults(data) {
   institutionResults.innerHTML = data
     .map(
       (row) => `
         <li>
-          <button class="result-btn" data-id="${row.id}" data-name="${escapeHtml(row.name || "-")}">
+          <button class="result-btn" data-id="${row.id}">
             <span class="result-title">${escapeHtml(row.name || "-")}</span>
           </button>
         </li>
@@ -80,154 +119,10 @@ async function searchInstitutions(term) {
   institutionResults.querySelectorAll("button").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.id;
-      const name = btn.dataset.name;
       if (!id) return;
-      selectInstitution({ id, name });
+      navigateToInstitution(id);
     });
   });
-}
-
-async function searchSecurities(term) {
-  if (!term) {
-    securityResults.innerHTML = "";
-    return;
-  }
-  const pattern = `%${term}%`;
-  const { data, error } = await supabase
-    .from("securities")
-    .select("id,name")
-    .ilike("name", pattern)
-    .limit(20);
-
-  if (error) {
-    securityResults.innerHTML = `<li class="muted">검색 실패: ${escapeHtml(error.message)}</li>`;
-    return;
-  }
-
-  if (!data || data.length === 0) {
-    securityResults.innerHTML = `<li class="muted">검색 결과 없음</li>`;
-    return;
-  }
-
-  securityResults.innerHTML = data
-    .map(
-      (row) => `
-        <li>
-          <button class="result-btn" data-id="${row.id}" data-name="${escapeHtml(row.name || "-")}">
-            <span class="result-title">${escapeHtml(row.name || "-")}</span>
-          </button>
-        </li>
-      `,
-    )
-    .join("");
-
-  securityResults.querySelectorAll("button").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const id = btn.dataset.id;
-      const name = btn.dataset.name;
-      if (!id) return;
-      selectSecurity({ id, name });
-    });
-  });
-}
-
-async function selectInstitution(institution) {
-  selectedInstitution = institution;
-  institutionTitle.textContent = institution.name;
-  institutionHoldingsBody.innerHTML = "";
-  institutionHoldingsMeta.textContent = "";
-
-  const { data, error } = await supabase
-    .from("holdings")
-    .select("percent,as_of_date,security:securities(name)")
-    .eq("source", "DART")
-    .eq("institution_id", institution.id)
-    .order("percent", { ascending: false })
-    .limit(200);
-
-  if (error) {
-    institutionHoldingsBody.innerHTML = `<tr><td colspan="3" class="muted">조회 실패: ${escapeHtml(
-      error.message,
-    )}</td></tr>`;
-    return;
-  }
-
-  currentInstitutionHoldings = data || [];
-  renderInstitutionHoldings();
-}
-
-function renderInstitutionHoldings() {
-  institutionHoldingsMeta.textContent = `${currentInstitutionHoldings.length}개 종목`;
-  if (currentInstitutionHoldings.length === 0) {
-    institutionHoldingsBody.innerHTML = `<tr><td colspan="3" class="muted">보유 종목 없음</td></tr>`;
-    return;
-  }
-
-  institutionHoldingsBody.innerHTML = currentInstitutionHoldings
-    .map((row) => {
-      const sec = row.security || {};
-      return `
-        <tr>
-          <td>${escapeHtml(sec.name || "-")}</td>
-          <td>${formatPercent(row.percent)}</td>
-          <td>${formatDate(row.as_of_date)}</td>
-        </tr>
-      `;
-    })
-    .join("");
-}
-
-async function selectSecurity(security) {
-  selectedSecurity = security;
-  securityTitle.textContent = security.name;
-  securityHoldersBody.innerHTML = "";
-  securityHoldersMeta.textContent = "";
-
-  const { data, error } = await supabase
-    .from("holdings")
-    .select("percent,as_of_date,institution:institutions(name)")
-    .eq("source", "DART")
-    .eq("security_id", security.id)
-    .gte("percent", 5);
-
-  if (error) {
-    securityHoldersBody.innerHTML = `<tr><td colspan="3" class="muted">조회 실패: ${escapeHtml(
-      error.message,
-    )}</td></tr>`;
-    return;
-  }
-
-  currentSecurityHolders = data || [];
-  renderSecurityHolders();
-}
-
-function renderSecurityHolders() {
-  const sorted = [...currentSecurityHolders];
-  const sortMode = securitySortSelect.value;
-  if (sortMode === "percent_desc") {
-    sorted.sort((a, b) => (b.percent || 0) - (a.percent || 0));
-  } else if (sortMode === "date_desc") {
-    sorted.sort((a, b) => new Date(b.as_of_date || 0) - new Date(a.as_of_date || 0));
-  }
-
-  securityHoldersMeta.textContent = `${sorted.length}개 기관`;
-  if (sorted.length === 0) {
-    securityHoldersBody.innerHTML = `<tr><td colspan="3" class="muted">5% 이상 보유 기관 없음</td></tr>`;
-    return;
-  }
-
-  securityHoldersBody.innerHTML = sorted
-    .map((row) => {
-      const inst = row.institution || {};
-      return `
-        <tr>
-          <td>${escapeHtml(inst.name || "-")}</td>
-          <td>${formatPercent(row.percent)}</td>
-          <td>${formatDate(row.as_of_date)}</td>
-        </tr>
-      `;
-    })
-    .join("");
 }
 
 institutionInput.addEventListener("input", () => {
@@ -236,13 +131,126 @@ institutionInput.addEventListener("input", () => {
   debounceTimer = setTimeout(() => searchInstitutions(term), 250);
 });
 
-securityInput.addEventListener("input", () => {
-  const term = securityInput.value.trim();
-  if (debounceTimer) clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => searchSecurities(term), 250);
+function navigateToInstitution(id) {
+  window.location.hash = `#/institution/${id}`;
+}
+
+function handleRoute() {
+  const match = window.location.hash.match(/^#\/institution\/(\d+)/);
+  if (match) {
+    const id = match[1];
+    listView.classList.add("hidden");
+    detailView.classList.remove("hidden");
+    selectInstitution(id);
+  } else {
+    listView.classList.remove("hidden");
+    detailView.classList.add("hidden");
+  }
+}
+
+backBtn.addEventListener("click", () => {
+  window.location.hash = "#/";
 });
 
-securitySortSelect.addEventListener("change", () => {
-  if (!selectedSecurity) return;
-  renderSecurityHolders();
-});
+async function selectInstitution(institutionId) {
+  const { data: instData, error: instErr } = await supabaseClient
+    .from("institutions")
+    .select("id,name")
+    .eq("id", institutionId)
+    .maybeSingle();
+
+  if (instErr || !instData) {
+    institutionName.textContent = "기관 정보 없음";
+    institutionMeta.textContent = "-";
+    return;
+  }
+
+  institutionName.textContent = instData.name || "기관";
+  institutionMeta.textContent = "- · -";
+
+  const { data: holdingsData, error: holdingsErr } = await supabaseClient
+    .from("holdings")
+    .select("percent,as_of_date,source,meta,security:securities(name)")
+    .eq("institution_id", institutionId)
+    .order("percent", { ascending: false })
+    .limit(50);
+
+  if (holdingsErr) {
+    holdingsBody.innerHTML = `<tr><td colspan="5" class="muted">조회 실패: ${escapeHtml(
+      holdingsErr.message,
+    )}</td></tr>`;
+    return;
+  }
+
+  const rows = holdingsData || [];
+  renderMetrics(rows);
+  renderCharts(rows);
+  renderHoldingsTable(rows);
+}
+
+function renderMetrics(rows) {
+  metricCount.textContent = rows.length.toLocaleString("ko-KR");
+  const percentSum = rows.reduce((sum, row) => sum + (Number(row.percent) || 0), 0);
+  metricPercent.textContent = `${percentSum.toFixed(2)}%`;
+  const maxDate = rows.reduce((max, row) => {
+    if (!row.as_of_date) return max;
+    const current = new Date(row.as_of_date).getTime();
+    return current > max ? current : max;
+  }, 0);
+  metricDate.textContent = maxDate ? new Date(maxDate).toLocaleDateString("ko-KR") : "-";
+}
+
+function renderCharts(rows) {
+  const top10 = [...rows]
+    .sort((a, b) => (b.percent || 0) - (a.percent || 0))
+    .slice(0, 10);
+
+  const topLabels = top10.map((row) => row.security?.name || "-");
+  const topValues = top10.map((row) => Number(row.percent) || 0);
+
+  if (top10Chart) top10Chart.destroy();
+  top10Chart = new Chart(document.getElementById("chart-top10"), {
+    type: "doughnut",
+    data: { labels: topLabels, datasets: [{ data: topValues }] },
+    options: { plugins: { legend: { position: "bottom", labels: { color: "#f5f7fb" } } } },
+  });
+
+  const marketTotals = rows.reduce(
+    (acc, row) => {
+      const market = String(row.source || "").toLowerCase() === "dart" ? "KR" : "US";
+      acc[market] = (acc[market] || 0) + (Number(row.percent) || 0);
+      return acc;
+    },
+    {},
+  );
+
+  if (marketChart) marketChart.destroy();
+  marketChart = new Chart(document.getElementById("chart-market"), {
+    type: "pie",
+    data: { labels: Object.keys(marketTotals), datasets: [{ data: Object.values(marketTotals) }] },
+    options: { plugins: { legend: { position: "bottom", labels: { color: "#f5f7fb" } } } },
+  });
+}
+
+function renderHoldingsTable(rows) {
+  if (!rows || rows.length === 0) {
+    holdingsBody.innerHTML = `<tr><td colspan="5" class="muted">데이터 없음</td></tr>`;
+    return;
+  }
+  holdingsBody.innerHTML = rows
+    .map((row, idx) => {
+      const sec = row.security || {};
+      const meta = row.meta && typeof row.meta === "object" ? row.meta : {};
+      const code = meta.ticker || meta.dart_corp_code || "-";
+      return `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>${escapeHtml(sec.name || "-")}</td>
+          <td>${escapeHtml(code)}</td>
+          <td>${formatPercent(row.percent)}</td>
+          <td>${formatDate(row.as_of_date)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}

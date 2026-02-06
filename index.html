@@ -4,83 +4,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>기관 투자 포트폴리오 조회</title>
+    <title>기관 투자 포트폴리오 대시보드</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <main class="page">
         <header class="page-header">
             <div>
-                <h1>기관 투자 포트폴리오 조회</h1>
-                <p>5% 이상 대량보유 공시(DART) 데이터 기준</p>
+                <h1>기관 투자 포트폴리오 대시보드</h1>
+                <p>Supabase public schema 기반 조회</p>
             </div>
         </header>
 
-        <section class="panel">
-            <h2>기관 기준 조회</h2>
+        <section id="list-view" class="panel">
+            <div class="panel-head">
+                <div>
+                    <h2>기관 목록</h2>
+                    <p class="muted">기관을 클릭하면 /institution/{id}로 이동합니다.</p>
+                </div>
+            </div>
             <div class="search-row">
                 <input id="institution-search" type="text" placeholder="기관명 입력" />
             </div>
             <ul id="institution-results" class="results-list"></ul>
-            <div class="panel-head">
-                <div>
-                    <h3>기관 보유 종목</h3>
-                    <p id="institution-title" class="muted">기관 선택 필요</p>
-                </div>
-            </div>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>종목명</th>
-                            <th>보유 비율</th>
-                            <th>공시일</th>
-                        </tr>
-                    </thead>
-                    <tbody id="institution-holdings-body">
-                        <tr><td colspan="3" class="muted">기관을 선택하세요.</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            <p id="institution-holdings-meta" class="muted"></p>
         </section>
 
-        <section class="panel">
-            <h2>종목 기준 조회</h2>
-            <div class="search-row">
-                <input id="security-search" type="text" placeholder="종목명 입력" />
-            </div>
-            <ul id="security-results" class="results-list"></ul>
+        <section id="detail-view" class="panel hidden">
             <div class="panel-head">
                 <div>
-                    <h3>5% 이상 보유 기관</h3>
-                    <p id="security-title" class="muted">종목 선택 필요</p>
+                    <h2 id="institution-name">기관명</h2>
+                    <p id="institution-meta" class="muted">국가 · 데이터 출처</p>
                 </div>
-                <label class="sort-select">
-                    정렬
-                    <select id="security-sort-select">
-                        <option value="percent_desc">보유 비율 내림차순</option>
-                        <option value="date_desc">최신 공시순</option>
-                    </select>
-                </label>
+                <button id="back-btn" class="tab-btn">목록으로</button>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <span class="metric-label">총 보유 종목 수</span>
+                    <strong id="metric-count">-</strong>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">총 보유 비중 합계</span>
+                    <strong id="metric-percent">-</strong>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">최근 보고일</span>
+                    <strong id="metric-date">-</strong>
+                </div>
+            </div>
+
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>보유 비중 TOP 10 종목</h3>
+                    <canvas id="chart-top10"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>시장별 비중 (KR/US)</h3>
+                    <canvas id="chart-market"></canvas>
+                </div>
+            </div>
+
+            <div class="panel-head">
+                <div>
+                    <h3>보유 종목</h3>
+                    <p class="muted">percent 내림차순 · 최대 50개</p>
+                </div>
             </div>
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th>기관명</th>
-                            <th>보유 비율</th>
-                            <th>공시일</th>
+                            <th>순위</th>
+                            <th>종목명</th>
+                            <th>티커/코드</th>
+                            <th>비중(%)</th>
+                            <th>보고일</th>
                         </tr>
                     </thead>
-                    <tbody id="security-holders-body">
-                        <tr><td colspan="3" class="muted">종목을 선택하세요.</td></tr>
+                    <tbody id="holdings-body">
+                        <tr><td colspan="5" class="muted">데이터 없음</td></tr>
                     </tbody>
                 </table>
             </div>
-            <p id="security-holders-meta" class="muted"></p>
         </section>
     </main>
 
